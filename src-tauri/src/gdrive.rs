@@ -14,19 +14,15 @@ const KEYRING_SERVICE: &str = "com.keel.app";
 const KEY_ACCESS_TOKEN: &str = "google_drive_access_token";
 
 /// Get Google OAuth Client ID from environment variable
-fn get_client_id() -> &'static str {
-    option_env!("GOOGLE_CLIENT_ID").expect(
-        "GOOGLE_CLIENT_ID environment variable must be set at compile time. \
-         Create a .env file or set the environment variable before building."
-    )
+fn get_client_id() -> String {
+    std::env::var("GOOGLE_CLIENT_ID")
+        .expect("GOOGLE_CLIENT_ID environment variable must be set. Create a .env file or set the environment variable.")
 }
 
 /// Get Google OAuth Client Secret from environment variable
-fn get_client_secret() -> &'static str {
-    option_env!("GOOGLE_CLIENT_SECRET").expect(
-        "GOOGLE_CLIENT_SECRET environment variable must be set at compile time. \
-         Create a .env file or set the environment variable before building."
-    )
+fn get_client_secret() -> String {
+    std::env::var("GOOGLE_CLIENT_SECRET")
+        .expect("GOOGLE_CLIENT_SECRET environment variable must be set. Create a .env file or set the environment variable.")
 }
 const KEY_REFRESH_TOKEN: &str = "google_drive_refresh_token";
 const KEY_EMAIL: &str = "google_drive_email";
@@ -275,9 +271,11 @@ pub async fn start_oauth_flow(app: &AppHandle) -> Result<String, String> {
     // 6. Exchange Authorization Code for Access & Refresh Tokens
     log_debug(app, "Exchanging auth code for access & refresh tokens...");
     let client = reqwest::Client::new();
+    let client_id = get_client_id();
+    let client_secret = get_client_secret();
     let mut params = HashMap::new();
-    params.insert("client_id", get_client_id());
-    params.insert("client_secret", get_client_secret());
+    params.insert("client_id", client_id.as_str());
+    params.insert("client_secret", client_secret.as_str());
     params.insert("code", &auth_code);
     params.insert("code_verifier", &verifier_clone);
     params.insert("grant_type", "authorization_code");
@@ -414,9 +412,11 @@ pub async fn get_valid_access_token() -> Result<String, String> {
     if now + 60 >= expires_at {
         // Exchange refresh token for a brand new access token
         let client = reqwest::Client::new();
+        let client_id = get_client_id();
+        let client_secret = get_client_secret();
         let mut params = HashMap::new();
-        params.insert("client_id", get_client_id());
-        params.insert("client_secret", get_client_secret());
+        params.insert("client_id", client_id.as_str());
+        params.insert("client_secret", client_secret.as_str());
         params.insert("refresh_token", &refresh_token);
         params.insert("grant_type", "refresh_token");
 

@@ -11,6 +11,9 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load .env file from the project root at runtime
+    dotenvy::dotenv().ok();
+
     // 1. Configure WebView2 memory-reduction browser arguments natively on Windows
     #[cfg(target_os = "windows")]
     {
