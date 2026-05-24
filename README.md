@@ -239,8 +239,6 @@ The built application will be available in `src-tauri/target/release/bundle/`.
 
 ## Screenshots
 
-> Place your screenshots in `docs/screenshots/` directory.
-
 <div align="center">
 
 ### Editor View
