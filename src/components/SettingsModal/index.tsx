@@ -568,9 +568,6 @@ export const SettingsModal: React.FC = () => {
                     >
                       Cancel Connection Flow
                     </button>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.4 }}>
-                      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>Note:</span> If Google says "Access Blocked: Project has not been verified", your Gmail address must be added to the <strong>Test Users</strong> list in the Google Cloud Console.
-                    </p>
                   </div>
                 )}
               </div>

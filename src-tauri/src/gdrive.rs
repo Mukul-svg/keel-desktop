@@ -15,12 +15,22 @@ const KEY_ACCESS_TOKEN: &str = "google_drive_access_token";
 
 /// Get Google OAuth Client ID from environment variable
 fn get_client_id() -> String {
+    if let Some(id) = option_env!("GOOGLE_CLIENT_ID") {
+        if !id.is_empty() {
+            return id.to_string();
+        }
+    }
     std::env::var("GOOGLE_CLIENT_ID")
         .expect("GOOGLE_CLIENT_ID environment variable must be set. Create a .env file or set the environment variable.")
 }
 
 /// Get Google OAuth Client Secret from environment variable
 fn get_client_secret() -> String {
+    if let Some(secret) = option_env!("GOOGLE_CLIENT_SECRET") {
+        if !secret.is_empty() {
+            return secret.to_string();
+        }
+    }
     std::env::var("GOOGLE_CLIENT_SECRET")
         .expect("GOOGLE_CLIENT_SECRET environment variable must be set. Create a .env file or set the environment variable.")
 }
