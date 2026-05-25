@@ -867,6 +867,7 @@ html {
   overflow: hidden;
   background: var(--bg-void);
   /* transparent in glass mode via --bg-void token redefinition */
+  position: relative;
 }
 
 .editor-textarea-wrapper,
