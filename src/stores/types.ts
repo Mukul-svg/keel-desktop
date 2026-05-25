@@ -98,7 +98,7 @@ export interface KeelStore {
   isKeyringConfigured: boolean;
   isSaving: boolean;
   isFocusMode: boolean;
-  theme: 'dark' | 'light';
+  theme: 'dark' | 'light' | 'paper';
   isMobileSidebarOpen: boolean;
   isMobileNotesListOpen: boolean;
 
@@ -154,7 +154,7 @@ export interface KeelStore {
   setSettingsOpen: (open: boolean) => void;
   setPreviewMode: (preview: boolean) => void;
   setFocusMode: (focus: boolean) => void;
-  setTheme: (theme: 'dark' | 'light') => void;
+  setTheme: (theme: 'dark' | 'light' | 'paper') => void;
   checkKeyringStatus: () => Promise<void>;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileNotesListOpen: (open: boolean) => void;

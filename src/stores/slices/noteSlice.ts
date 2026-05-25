@@ -106,8 +106,8 @@ export const createNoteSlice: StateCreator<
       await get().loadNotes(notebookId);
       await get().selectNote(newNote.id);
 
-      // Perform background sync on note creation
-      if (get().isSyncConnected) {
+      // Perform background sync on note creation if enabled
+      if (get().isSyncConnected && get().syncInterval !== 'manual') {
         get().triggerSync();
       }
     } catch (e) {
@@ -138,8 +138,8 @@ export const createNoteSlice: StateCreator<
       // Reload list metadata in background
       await get().loadNotes(notebookId);
 
-      // Auto debounced sync on save
-      if (get().isSyncConnected) {
+      // Auto debounced sync on save if enabled
+      if (get().isSyncConnected && get().syncInterval !== 'manual') {
         get().triggerSync();
       }
     } catch (e) {
@@ -158,8 +158,8 @@ export const createNoteSlice: StateCreator<
       set({ activeNoteId: '', activeNote: null, activeNoteBacklinks: [] });
       await get().loadNotes(notebookId);
 
-      // Perform background sync on delete
-      if (get().isSyncConnected) {
+      // Perform background sync on delete if enabled
+      if (get().isSyncConnected && get().syncInterval !== 'manual') {
         get().triggerSync();
       }
     } catch (e) {
@@ -184,7 +184,7 @@ export const createNoteSlice: StateCreator<
       }
       await get().loadNotes(notebookId);
       
-      if (get().isSyncConnected) {
+      if (get().isSyncConnected && get().syncInterval !== 'manual') {
         get().triggerSync();
       }
     } catch (e) {
@@ -204,7 +204,7 @@ export const createNoteSlice: StateCreator<
         set({ activeNoteId: '', activeNote: null, activeNoteBacklinks: [] });
       }
 
-      if (get().isSyncConnected) {
+      if (get().isSyncConnected && get().syncInterval !== 'manual') {
         get().triggerSync();
       }
     } catch (e) {

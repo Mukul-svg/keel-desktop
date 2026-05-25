@@ -76,7 +76,10 @@ pub fn run() {
             gdrive::disconnect_google_drive,
             gdrive::trigger_gdrive_sync,
             gdrive::resolve_gdrive_conflict,
-            gdrive::get_sync_status
+            gdrive::get_sync_status,
+            gdrive::check_sync_differences,
+            gdrive::force_overwrite_cloud,
+            gdrive::force_overwrite_local
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

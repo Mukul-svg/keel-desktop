@@ -98,7 +98,7 @@ export const AIPanel: React.FC = () => {
     <div className="ai-panel glass-panel">
       <div className="ai-panel-header">
         <h3 className="ai-panel-title">
-          <span>▲</span> AI Assist
+          <Sparkles size={16} style={{ color: 'var(--cyan)' }} /> AI Assist
         </h3>
         <button
           className="toolbar-btn"
@@ -111,16 +111,7 @@ export const AIPanel: React.FC = () => {
 
       <div className="ai-panel-scroll">
         {!isKeyringConfigured && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: 'var(--border-radius-sm)',
-            padding: '12px',
-            fontSize: '0.8rem',
-            color: '#f87171',
-            marginBottom: '8px',
-            lineHeight: 1.4
-          }}>
+          <div className="alert-banner">
             <strong>API Key Missing:</strong> Please open settings <Settings size={12} style={{ display: 'inline', verticalAlign: 'middle', margin: '0 2px' }} /> to securely add your Google Gemini API Key.
           </div>
         )}
@@ -155,7 +146,6 @@ export const AIPanel: React.FC = () => {
                 fontSize: '0.8rem',
                 minHeight: '60px',
                 resize: 'vertical',
-                background: 'rgba(0, 0, 0, 0.2)'
               }}
               placeholder="e.g. translate to French, or format as a JSON schema..."
               value={customInstruction}
@@ -192,15 +182,7 @@ export const AIPanel: React.FC = () => {
             </div>
 
             {errorMessage ? (
-              <div style={{
-                background: 'rgba(239, 68, 68, 0.05)',
-                border: '1px solid rgba(239, 68, 68, 0.15)',
-                borderRadius: 'var(--border-radius-sm)',
-                padding: '12px',
-                fontSize: '0.8rem',
-                color: '#f87171',
-                whiteSpace: 'pre-wrap'
-              }}>
+              <div className="alert-banner" style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>
                 {errorMessage}
               </div>
             ) : (

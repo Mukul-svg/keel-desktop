@@ -824,6 +824,148 @@ pub fn get_sync_status() -> Result<SyncStatus, String> {
     })
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SyncDifferenceResult {
+    pub has_differences: bool,
+    pub local_count: usize,
+    pub remote_count: usize,
+    pub remote_only: bool,
+}
+
+#[tauri::command]
+pub async fn check_sync_differences(app: tauri::AppHandle) -> Result<SyncDifferenceResult, String> {
+    use sqlx::Row;
+    let access_token = get_valid_access_token().await?;
+    let state = app.state::<crate::db::DbState>();
+    let pool = &state.pool;
+
+    let remote_files = list_drive_files(&access_token).await?;
+    let local_notes = sqlx::query("SELECT id, updated_at FROM notes")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let local_count = local_notes.len();
+    let remote_count = remote_files.iter().filter(|f| f.name.starts_with("note_") && f.name.ends_with(".json")).count();
+
+    if remote_count == 0 {
+        return Ok(SyncDifferenceResult {
+            has_differences: false,
+            local_count,
+            remote_count: 0,
+            remote_only: false,
+        });
+    }
+
+    if local_count == 0 {
+        return Ok(SyncDifferenceResult {
+            has_differences: false,
+            local_count: 0,
+            remote_count,
+            remote_only: true,
+        });
+    }
+
+    // Check for overlaps with differing content or metadata
+    let mut has_differences = false;
+    let remote_file_map: HashMap<String, DriveFile> = remote_files
+        .into_iter()
+        .map(|f| (f.name.clone(), f))
+        .collect();
+
+    for row in &local_notes {
+        let note_id: String = row.get("id");
+        let local_updated_at: String = row.get("updated_at");
+        let remote_name = format!("note_{}.json", note_id);
+
+        if let Some(r_file) = remote_file_map.get(&remote_name) {
+            // Retrieve remote file details to check updated_at or compare content
+            if let Ok(remote_doc_content) = download_drive_file(&access_token, &r_file.id).await {
+                if let Ok(remote_doc) = serde_json::from_str::<crate::sync_engine::SyncNoteDocument>(&remote_doc_content) {
+                    if local_updated_at != remote_doc.updated_at {
+                        has_differences = true;
+                        break;
+                    }
+                } else {
+                    has_differences = true;
+                    break;
+                }
+            } else {
+                has_differences = true;
+                break;
+            }
+        }
+    }
+
+    Ok(SyncDifferenceResult {
+        has_differences,
+        local_count,
+        remote_count,
+        remote_only: false,
+    })
+}
+
+#[tauri::command]
+pub async fn force_overwrite_cloud(app: tauri::AppHandle) -> Result<(), String> {
+    let access_token = get_valid_access_token().await?;
+    let remote_files = list_drive_files(&access_token).await?;
+    for file in remote_files {
+        if file.name.starts_with("note_") && file.name.ends_with(".json") {
+            let _ = delete_drive_file(&access_token, &file.id).await;
+        }
+    }
+    // Also delete any remote notebooks or tombstones to clean up fully
+    for file in list_drive_files(&access_token).await? {
+        if (file.name.starts_with("notebook_") && file.name.ends_with(".json")) || 
+           (file.name.starts_with("tombstone_") && file.name.ends_with(".json")) {
+            let _ = delete_drive_file(&access_token, &file.id).await;
+        }
+    }
+
+    // Clear sync anchor to force a full re-sync
+    let state = app.state::<crate::db::DbState>();
+    let pool = &state.pool;
+    sqlx::query("DELETE FROM sync_metadata WHERE key = 'last_sync_time'")
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn force_overwrite_local(app: tauri::AppHandle) -> Result<(), String> {
+    use sqlx::Row;
+    let state = app.state::<crate::db::DbState>();
+    let pool = &state.pool;
+    
+    // We want to delete local notes, tags, note_tags, backlinks, and sync metadata inside a SQL Transaction
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    
+    // 1. Fetch all local notes to delete physical Markdown files
+    let notes = sqlx::query("SELECT file_path FROM notes")
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    for row in notes {
+        let file_path_str: String = row.get("file_path");
+        let path = std::path::PathBuf::from(file_path_str);
+        if path.exists() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    sqlx::query("DELETE FROM notes").execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM notes_fts").execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM tags").execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM note_tags").execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM backlinks").execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM sync_metadata WHERE key = 'last_sync_time'").execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

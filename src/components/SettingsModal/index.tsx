@@ -89,13 +89,15 @@ export const SettingsModal: React.FC = () => {
     cancelSyncConnection,
     disconnectSync,
     triggerSync,
+    syncInterval,
+    setSyncInterval,
   } = useStore();
 
   const [apiKey, setApiKey] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [customUrl, setCustomUrl] = useState('');
   const [activePresetId, setActivePresetId] = useState<string>('none');
-  const [activeTab, setActiveTab] = useState<'general' | 'sync'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'sync'>('general');
 
   // Reset tab on open
   useEffect(() => {
@@ -199,7 +201,14 @@ export const SettingsModal: React.FC = () => {
             className={`settings-tab-btn ${activeTab === 'general' ? 'active' : ''}`}
             onClick={() => setActiveTab('general')}
           >
-            General &amp; Appearance
+            General
+          </button>
+          <button
+            type="button"
+            className={`settings-tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
+            onClick={() => setActiveTab('appearance')}
+          >
+            Appearance
           </button>
           <button
             type="button"
@@ -212,260 +221,321 @@ export const SettingsModal: React.FC = () => {
 
         {activeTab === 'general' ? (
           <form onSubmit={handleSave}>
-          {/* === API Key === */}
-          <div className="settings-input-group">
-            <label className="settings-label">Gemini API Key</label>
-            <input
-              type="password"
-              className="settings-input"
-              placeholder={isKeyringConfigured ? '•••••••••••••••• (API Key Configured)' : 'Enter your Gemini API key...'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {isKeyringConfigured ? (
-                <span>
-                  Key is saved securely in Windows Credential Manager.{' '}
-                  <span
-                    onClick={handleDeleteKey}
-                    style={{ color: '#ef4444', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    Delete Key
+            {/* === API Key === */}
+            <div className="settings-input-group">
+              <label className="settings-label">Gemini API Key</label>
+              <input
+                type="password"
+                className="settings-input"
+                placeholder={isKeyringConfigured ? '•••••••••••••••• (API Key Configured)' : 'Enter your Gemini API key...'}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {isKeyringConfigured ? (
+                  <span>
+                    Key is saved securely in Windows Credential Manager.{' '}
+                    <span
+                      onClick={handleDeleteKey}
+                      style={{ color: '#ef4444', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      Delete Key
+                    </span>
                   </span>
-                </span>
-              ) : (
-                'Key will be stored in your system secure keyring.'
-              )}
-            </p>
-          </div>
-
-          {/* === Theme === */}
-          <div className="settings-input-group">
-            <label className="settings-label">Theme</label>
-            <div className="theme-toggle-group">
-              <button
-                type="button"
-                className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
-                onClick={() => setTheme('dark')}
-              >
-                Dark Theme
-              </button>
-              <button
-                type="button"
-                className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
-                onClick={() => setTheme('light')}
-              >
-                Light Theme
-              </button>
-            </div>
-          </div>
-
-          {/* === Ambient Snowfall === */}
-          <div className="settings-input-group settings-bg-controls" style={{ padding: '12px 16px', background: 'var(--bg-void)', marginBottom: '20px' }}>
-            <div className="settings-toggle-row" style={{ border: 'none', padding: 0, margin: 0 }}>
-              <div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Ambient Snowfall</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Slow-moving, subtle glowing ambient snow particles</div>
-              </div>
-              <button
-                type="button"
-                className="glass-toggle-btn"
-                onClick={() => setSnowEnabled(!isSnowEnabled)}
-                aria-label="Toggle snow effect"
-              >
-                {isSnowEnabled
-                  ? <ToggleRight size={28} style={{ color: 'var(--cyan)' }} />
-                  : <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
-                }
-              </button>
-            </div>
-          </div>
-
-          {/* === Workspace Background === */}
-          <div className="settings-input-group">
-            <label className="settings-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Image size={13} style={{ opacity: 0.6 }} />
-              Workspace Background
-            </label>
-
-            {/* Preset Grid */}
-            <div className="bg-presets-grid">
-              {BG_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  className={`bg-preset-card ${activePresetId === preset.id ? 'active' : ''}`}
-                  onClick={() => handlePresetSelect(preset)}
-                  title={preset.label}
-                >
-                  <div
-                    className="bg-preset-thumb"
-                    style={{
-                      background: preset.preview === 'none'
-                        ? 'var(--bg-void)'
-                        : preset.preview === 'custom'
-                          ? 'repeating-linear-gradient(45deg, var(--bg-card) 0px, var(--bg-card) 4px, var(--bg-void) 4px, var(--bg-void) 8px)'
-                          : preset.preview,
-                    }}
-                  >
-                    {preset.id === 'none' && (
-                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'inherit', textAlign: 'center', lineHeight: 1.3 }}>Default</span>
-                    )}
-                    {preset.id === 'custom' && (
-                      <Link2 size={13} style={{ color: 'var(--text-muted)' }} />
-                    )}
-                    {activePresetId === preset.id && preset.id !== 'none' && preset.id !== 'custom' && (
-                      <div className="bg-preset-check">
-                        <Check size={10} />
-                      </div>
-                    )}
-                    {activePresetId === preset.id && (preset.id === 'none' || preset.id === 'custom') && (
-                      <div className="bg-preset-check">
-                        <Check size={10} />
-                      </div>
-                    )}
-                  </div>
-                  <span className="bg-preset-label">{preset.label}</span>
-                </button>
-              ))}
+                ) : (
+                  'Key will be stored in your system secure keyring.'
+                )}
+              </p>
             </div>
 
-            {/* Custom URL input */}
-            {activePresetId === 'custom' && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <input
-                  type="url"
-                  className="settings-input"
-                  placeholder="https://images.unsplash.com/..."
-                  value={customUrl}
-                  onChange={(e) => setCustomUrl(e.target.value)}
-                  style={{ flex: 1, fontSize: '0.8rem' }}
-                />
+            {/* === Cloud Sync Interval === */}
+            <div className="settings-input-group">
+              <label className="settings-label">Cloud Sync Interval</label>
+              <select
+                className="settings-input"
+                value={syncInterval}
+                onChange={(e) => setSyncInterval(e.target.value as any)}
+              >
+                <option value="manual">Manual (No background sync)</option>
+                <option value="1m">1 Minute</option>
+                <option value="5m">5 Minutes</option>
+                <option value="15m">15 Minutes</option>
+                <option value="30m">30 Minutes</option>
+                <option value="1h">1 Hour</option>
+              </select>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Configure how often your notes sync automatically with Google Drive in the background.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setSettingsOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={saveStatus === 'saving'}
+              >
+                {saveStatus === 'saving'
+                  ? 'Saving...'
+                  : saveStatus === 'saved'
+                    ? 'Saved!'
+                    : saveStatus === 'error'
+                      ? 'Error!'
+                      : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        ) : activeTab === 'appearance' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* === Theme === */}
+            <div className="settings-input-group">
+              <label className="settings-label">Theme</label>
+              <div className="theme-toggle-group">
                 <button
                   type="button"
-                  className="btn-primary"
-                  style={{ padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-                  onClick={handleCustomUrlApply}
+                  className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
+                  onClick={() => setTheme('dark')}
                 >
-                  Apply
+                  Dark
+                </button>
+                <button
+                  type="button"
+                  className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
+                  onClick={() => setTheme('light')}
+                >
+                  Light
+                </button>
+                <button
+                  type="button"
+                  className={`theme-btn ${theme === 'paper' ? 'active' : ''}`}
+                  onClick={() => setTheme('paper')}
+                >
+                  Paper
                 </button>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* === Background Controls (visible only when a background is set) === */}
-          {hasBackground && (
-            <div className="settings-input-group settings-bg-controls">
-              {/* Glass Panels Toggle */}
-              <div className="settings-toggle-row">
+            {/* === Ambient Snowfall === */}
+            <div className="settings-input-group settings-bg-controls" style={{ padding: '12px 16px', background: 'var(--bg-void)', marginBottom: '20px' }}>
+              <div className="settings-toggle-row" style={{ border: 'none', padding: 0, margin: 0 }}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Acrylic Glass Panels</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Translucent frosted-glass effect on panels</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Ambient Snowfall</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Slow-moving, subtle glowing ambient snow particles</div>
                 </div>
                 <button
                   type="button"
                   className="glass-toggle-btn"
-                  onClick={() => setGlassEnabled(!isGlassEnabled)}
-                  aria-label="Toggle glass panels"
+                  onClick={() => setSnowEnabled(!isSnowEnabled)}
+                  aria-label="Toggle snow effect"
                 >
-                  {isGlassEnabled
+                  {isSnowEnabled
                     ? <ToggleRight size={28} style={{ color: 'var(--cyan)' }} />
                     : <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
                   }
                 </button>
               </div>
-
-              {/* Panel Opacity Slider — always visible in controls, not gated on glass */}
-              <div className="settings-slider-group">
-                <div className="settings-slider-header">
-                  <label className="settings-slider-label">Panel Opacity</label>
-                  <span className="settings-slider-value">{Math.round(panelOpacity * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  className="settings-range"
-                  min="0" max="1" step="0.01"
-                  value={panelOpacity}
-                  onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
-                />
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  Controls sidebar &amp; editor panel transparency
-                </p>
-              </div>
-
-              {/* Image Opacity Slider */}
-              <div className="settings-slider-group">
-                <div className="settings-slider-header">
-                  <label className="settings-slider-label">Image Opacity</label>
-                  <span className="settings-slider-value">{Math.round(bgOpacity * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  className="settings-range"
-                  min="0" max="1" step="0.01"
-                  value={bgOpacity}
-                  onChange={(e) => setBgOpacity(parseFloat(e.target.value))}
-                />
-              </div>
-
-              {/* Blur Slider */}
-              <div className="settings-slider-group">
-                <div className="settings-slider-header">
-                  <label className="settings-slider-label">Background Blur</label>
-                  <span className="settings-slider-value">{Math.round(bgBlur)}px</span>
-                </div>
-                <input
-                  type="range"
-                  className="settings-range"
-                  min="0" max="40" step="1"
-                  value={bgBlur}
-                  onChange={(e) => setBgBlur(parseFloat(e.target.value))}
-                />
-              </div>
-
-              {/* Contrast Overlay Slider */}
-              <div className="settings-slider-group">
-                <div className="settings-slider-header">
-                  <label className="settings-slider-label">Contrast Overlay</label>
-                  <span className="settings-slider-value">{Math.round(bgOverlayOpacity * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  className="settings-range"
-                  min="0" max="0.9" step="0.01"
-                  value={bgOverlayOpacity}
-                  onChange={(e) => setBgOverlayOpacity(parseFloat(e.target.value))}
-                />
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  Increases a {theme === 'light' ? 'white' : 'dark'} tint to improve text contrast
-                </p>
-              </div>
             </div>
-          )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setSettingsOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={saveStatus === 'saving'}
-            >
-              {saveStatus === 'saving'
-                ? 'Saving...'
-                : saveStatus === 'saved'
-                  ? 'Saved!'
-                  : saveStatus === 'error'
-                    ? 'Error!'
-                    : 'Save Changes'}
-            </button>
+            {/* === Workspace Background & Glass Controls === */}
+            {theme === 'paper' ? (
+              <div 
+                className="settings-bg-controls" 
+                style={{ 
+                  padding: '16px', 
+                  background: 'rgba(139, 90, 43, 0.04)', 
+                  border: '1px solid rgba(139, 90, 43, 0.15)', 
+                  borderRadius: 'var(--border-radius-lg)', 
+                  color: '#8b5a2b',
+                  fontSize: '0.8rem',
+                  lineHeight: 1.5,
+                  margin: '8px 0'
+                }}
+              >
+                <strong>📖 Paper Mode Active:</strong> Custom image backgrounds and translucent glass effects are disabled to maintain perfect warm off-white contrast and maximum eye comfort.
+              </div>
+            ) : (
+              <>
+                {/* === Workspace Background === */}
+                <div className="settings-input-group">
+                  <label className="settings-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Image size={13} style={{ opacity: 0.6 }} />
+                    Workspace Background
+                  </label>
+
+                  {/* Preset Grid */}
+                  <div className="bg-presets-grid">
+                    {BG_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={`bg-preset-card ${activePresetId === preset.id ? 'active' : ''}`}
+                        onClick={() => handlePresetSelect(preset)}
+                        title={preset.label}
+                      >
+                        <div
+                          className="bg-preset-thumb"
+                          style={{
+                            background: preset.preview === 'none'
+                              ? 'var(--bg-void)'
+                              : preset.preview === 'custom'
+                                ? 'repeating-linear-gradient(45deg, var(--bg-card) 0px, var(--bg-card) 4px, var(--bg-void) 4px, var(--bg-void) 8px)'
+                                : preset.preview,
+                          }}
+                        >
+                          {preset.id === 'none' && (
+                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'inherit', textAlign: 'center', lineHeight: 1.3 }}>Default</span>
+                          )}
+                          {preset.id === 'custom' && (
+                            <Link2 size={13} style={{ color: 'var(--text-muted)' }} />
+                          )}
+                          {activePresetId === preset.id && preset.id !== 'none' && preset.id !== 'custom' && (
+                            <div className="bg-preset-check">
+                              <Check size={10} />
+                            </div>
+                          )}
+                          {activePresetId === preset.id && (preset.id === 'none' || preset.id === 'custom') && (
+                            <div className="bg-preset-check">
+                              <Check size={10} />
+                            </div>
+                          )}
+                        </div>
+                        <span className="bg-preset-label">{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom URL input */}
+                  {activePresetId === 'custom' && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <input
+                        type="url"
+                        className="settings-input"
+                        placeholder="https://images.unsplash.com/..."
+                        value={customUrl}
+                        onChange={(e) => setCustomUrl(e.target.value)}
+                        style={{ flex: 1, fontSize: '0.8rem' }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                        onClick={handleCustomUrlApply}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* === Background Controls (visible only when a background is set) === */}
+                {hasBackground && (
+                  <div className="settings-input-group settings-bg-controls">
+                    {/* Glass Panels Toggle */}
+                    <div className="settings-toggle-row">
+                      <div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Acrylic Glass Panels</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Translucent frosted-glass effect on panels</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="glass-toggle-btn"
+                        onClick={() => setGlassEnabled(!isGlassEnabled)}
+                        aria-label="Toggle glass panels"
+                      >
+                        {isGlassEnabled
+                          ? <ToggleRight size={28} style={{ color: 'var(--cyan)' }} />
+                          : <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
+                        }
+                      </button>
+                    </div>
+
+                    {/* Panel Opacity Slider */}
+                    <div className="settings-slider-group">
+                      <div className="settings-slider-header">
+                        <label className="settings-slider-label">Panel Opacity</label>
+                        <span className="settings-slider-value">{Math.round(panelOpacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        className="settings-range"
+                        min="0" max="1" step="0.01"
+                        value={panelOpacity}
+                        onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
+                      />
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Controls sidebar &amp; editor panel transparency
+                      </p>
+                    </div>
+
+                    {/* Image Opacity Slider */}
+                    <div className="settings-slider-group">
+                      <div className="settings-slider-header">
+                        <label className="settings-slider-label">Image Opacity</label>
+                        <span className="settings-slider-value">{Math.round(bgOpacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        className="settings-range"
+                        min="0" max="1" step="0.01"
+                        value={bgOpacity}
+                        onChange={(e) => setBgOpacity(parseFloat(e.target.value))}
+                      />
+                    </div>
+
+                    {/* Blur Slider */}
+                    <div className="settings-slider-group">
+                      <div className="settings-slider-header">
+                        <label className="settings-slider-label">Background Blur</label>
+                        <span className="settings-slider-value">{Math.round(bgBlur)}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        className="settings-range"
+                        min="0" max="40" step="1"
+                        value={bgBlur}
+                        onChange={(e) => setBgBlur(parseFloat(e.target.value))}
+                      />
+                    </div>
+
+                    {/* Contrast Overlay Slider */}
+                    <div className="settings-slider-group">
+                      <div className="settings-slider-header">
+                        <label className="settings-slider-label">Contrast Overlay</label>
+                        <span className="settings-slider-value">{Math.round(bgOverlayOpacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        className="settings-range"
+                        min="0" max="0.9" step="0.01"
+                        value={bgOverlayOpacity}
+                        onChange={(e) => setBgOverlayOpacity(parseFloat(e.target.value))}
+                      />
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Increases a {theme === 'dark' ? 'dark' : 'white'} tint to improve text contrast
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setSettingsOpen(false)}
+                style={{ padding: '8px 24px' }}
+              >
+                Close Settings
+              </button>
+            </div>
           </div>
-        </form>
       ) : (
         /* === Cloud Sync Panel (activeTab === 'sync') === */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -528,7 +598,7 @@ export const SettingsModal: React.FC = () => {
                     <div style={{
                       maxHeight: '100px',
                       overflowY: 'auto',
-                      background: 'rgba(0, 0, 0, 0.3)',
+                      background: 'var(--bg-card)',
                       padding: '8px',
                       borderRadius: '4px',
                       fontFamily: 'monospace',
@@ -545,7 +615,7 @@ export const SettingsModal: React.FC = () => {
                       <code style={{
                         display: 'block',
                         marginTop: '4px',
-                        background: 'rgba(255, 255, 255, 0.05)',
+                        background: 'var(--bg-active)',
                         padding: '4px 6px',
                         borderRadius: '4px',
                         fontFamily: 'monospace',
@@ -607,7 +677,7 @@ export const SettingsModal: React.FC = () => {
                     width: '36px',
                     height: '36px',
                     borderRadius: 'var(--border-radius-sm)',
-                    background: theme === 'light' ? 'rgba(0, 119, 182, 0.1)' : 'rgba(0, 229, 255, 0.1)',
+                    background: 'rgba(0, 112, 243, 0.1)',
                     color: 'var(--cyan)',
                     flexShrink: 0
                   }}>

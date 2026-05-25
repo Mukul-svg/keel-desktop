@@ -20,6 +20,7 @@ import { CreateNotebookModal } from './components/CreateNotebookModal';
 import { EditNotebookModal } from './components/EditNotebookModal';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { SyncToast } from './components/SyncToast';
+import { OnboardingModal } from './components/OnboardingModal';
 
 export default function App() {
   const {
@@ -44,6 +45,8 @@ export default function App() {
     // Cloud sync check on launch
     checkSyncStatus,
     triggerSync,
+    syncInterval,
+    isSyncConnected,
   } = useStore();
 
   // Sync keyring status and default notebooks on boot
@@ -55,33 +58,58 @@ export default function App() {
       await loadAllTags();
       // Auto-select Inbox notebook
       await selectNotebook('inbox');
-      // Trigger background sync silently if connected
-      triggerSync();
+      // Trigger background sync silently if connected, only if sync is active and not manual
+      if (useStore.getState().isSyncConnected && useStore.getState().syncInterval !== 'manual') {
+        triggerSync();
+      }
     };
     bootApp();
   }, [checkKeyringStatus, checkSyncStatus, loadNotebooks, loadAllTags, selectNotebook, triggerSync]);
 
+  // Background Cloud Sync Scheduler
+  useEffect(() => {
+    if (!isSyncConnected || syncInterval === 'manual') {
+      return;
+    }
+
+    const intervalMsMap: Record<string, number> = {
+      '1m': 60 * 1000,
+      '5m': 5 * 60 * 1000,
+      '15m': 15 * 60 * 1000,
+      '30m': 30 * 60 * 1000,
+      '1h': 60 * 60 * 1000,
+    };
+
+    const delay = intervalMsMap[syncInterval] || 5 * 60 * 1000;
+
+    const timerId = setInterval(() => {
+      console.log(`[Scheduler] Auto-syncing workspace... (${syncInterval})`);
+      triggerSync();
+    }, delay);
+
+    return () => clearInterval(timerId);
+  }, [syncInterval, isSyncConnected, triggerSync]);
 
   // Synchronize CSS custom data-theme on boot or theme state changes
   useEffect(() => {
-    if (theme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
+    document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
   // Find the active background preset gradient for robust, premium offline fallback support
   const activePreset = BG_PRESETS.find(p => p.url === bgImageUrl);
   const fallbackGradient = activePreset && activePreset.preview !== 'custom' ? activePreset.preview : '';
 
+  // Custom background and glass system is entirely disabled in Paper Mode for optimal eye comfort
+  const showCustomBg = bgImageUrl && theme !== 'paper';
+  const showGlass = isGlassEnabled && theme !== 'paper';
+
   return (
     <div
-      className={`app-container${bgImageUrl ? ' has-custom-bg' : ''}${bgImageUrl && isGlassEnabled ? ' glass-enabled' : ''}`}
+      className={`app-container${showCustomBg ? ' has-custom-bg' : ''}${showCustomBg && showGlass ? ' glass-enabled' : ''}`}
       style={{ '--panel-opacity': panelOpacity } as React.CSSProperties}
     >
       {/* Full-viewport Background Canvas Layer (behind all panels) */}
-      {bgImageUrl && (
+      {showCustomBg && (
         <div 
           className="app-bg-canvas-container"
           style={{ background: fallbackGradient || undefined }}
@@ -136,6 +164,7 @@ export default function App() {
       {/* Overlay Dialogs & Command Palette HUD */}
       <CommandPalette />
       <SettingsModal />
+      <OnboardingModal />
       <ConfirmDialog />
       <PromptDialog />
       <CreateNotebookModal />

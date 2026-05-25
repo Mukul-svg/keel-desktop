@@ -9,7 +9,7 @@ export interface SettingsSlice {
   panelOpacity: number;
   isGlassEnabled: boolean;
   isSnowEnabled: boolean;
-  theme: 'dark' | 'light';
+  theme: 'dark' | 'light' | 'paper';
   syncInterval: 'manual' | '1m' | '5m' | '15m' | '30m' | '1h';
 
   setBgImageUrl: (url: string) => void;
@@ -19,7 +19,7 @@ export interface SettingsSlice {
   setPanelOpacity: (opacity: number) => void;
   setGlassEnabled: (enabled: boolean) => void;
   setSnowEnabled: (enabled: boolean) => void;
-  setTheme: (theme: 'dark' | 'light') => void;
+  setTheme: (theme: 'dark' | 'light' | 'paper') => void;
   setSyncInterval: (interval: 'manual' | '1m' | '5m' | '15m' | '30m' | '1h') => void;
 }
 
@@ -36,7 +36,7 @@ export const createSettingsSlice: StateCreator<
   panelOpacity: parseFloat(localStorage.getItem('panelOpacity') || '0.72'),
   isGlassEnabled: localStorage.getItem('isGlassEnabled') !== 'false',
   isSnowEnabled: localStorage.getItem('isSnowEnabled') === 'true',
-  theme: (localStorage.getItem('theme') as 'dark' | 'light') || 'dark',
+  theme: (localStorage.getItem('theme') as 'dark' | 'light' | 'paper') || 'dark',
   syncInterval: (localStorage.getItem('syncInterval') as any) || 'manual',
 
   setBgImageUrl: (url) => {
@@ -70,11 +70,7 @@ export const createSettingsSlice: StateCreator<
   setTheme: (theme) => {
     localStorage.setItem('theme', theme);
     set({ theme });
-    if (theme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
+    document.documentElement.setAttribute('data-theme', theme);
   },
   setSyncInterval: (interval) => {
     localStorage.setItem('syncInterval', interval);
