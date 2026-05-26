@@ -21,6 +21,7 @@ import { EditNotebookModal } from './components/EditNotebookModal';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { SyncToast } from './components/SyncToast';
 import { OnboardingModal } from './components/OnboardingModal';
+import { ContextMenu } from './components/ContextMenu';
 
 export default function App() {
   const {
@@ -41,6 +42,7 @@ export default function App() {
     isMobileNotesListOpen,
     setMobileSidebarOpen,
     setMobileNotesListOpen,
+    isSidebarCollapsed,
     
     // Cloud sync check on launch
     checkSyncStatus,
@@ -137,7 +139,7 @@ export default function App() {
       <MobileHeader />
 
       {/* Main Grid Workspace */}
-      <div className={`workspace-grid ${isGeminiPanelOpen ? 'with-ai-panel' : ''} ${isFocusMode ? 'focus-mode' : ''}`}>
+      <div className={`workspace-grid ${isGeminiPanelOpen ? 'with-ai-panel' : ''} ${isFocusMode ? 'focus-mode' : ''} ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         {(isMobileSidebarOpen || isMobileNotesListOpen) && (
           <div
             className="mobile-drawer-backdrop visible"
@@ -171,6 +173,7 @@ export default function App() {
       <EditNotebookModal />
       <ConflictResolutionModal />
       <SyncToast />
+      <ContextMenu />
     </div>
   );
 }

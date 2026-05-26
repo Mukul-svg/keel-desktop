@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { KeelStore, ConfirmDialogState, PromptDialogState, Notebook } from '../types';
+import { KeelStore, ConfirmDialogState, PromptDialogState, Notebook, ContextMenuState } from '../types';
 
 export interface UiSlice {
   isCommandPaletteOpen: boolean;
@@ -11,10 +11,12 @@ export interface UiSlice {
   isMobileSidebarOpen: boolean;
   isMobileNotesListOpen: boolean;
   confirmDialog: ConfirmDialogState | null;
+  contextMenu: ContextMenuState | null;
   promptDialog: PromptDialogState | null;
   isCreateNotebookModalOpen: boolean;
   isEditNotebookModalOpen: boolean;
   editingNotebook: Notebook | null;
+  isSidebarCollapsed: boolean;
 
   setCommandPaletteOpen: (open: boolean) => void;
   setGeminiPanelOpen: (open: boolean) => void;
@@ -23,8 +25,11 @@ export interface UiSlice {
   setFocusMode: (focus: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileNotesListOpen: (open: boolean) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   showConfirm: (dialog: Omit<ConfirmDialogState, 'isOpen'>) => void;
   hideConfirm: () => void;
+  showContextMenu: (type: 'note' | 'notebook', targetId: string, x: number, y: number) => void;
+  hideContextMenu: () => void;
   showPrompt: (dialog: Omit<PromptDialogState, 'isOpen'>) => void;
   hidePrompt: () => void;
   setCreateNotebookModalOpen: (open: boolean) => void;
@@ -46,10 +51,12 @@ export const createUiSlice: StateCreator<
   isMobileSidebarOpen: false,
   isMobileNotesListOpen: false,
   confirmDialog: null,
+  contextMenu: null,
   promptDialog: null,
   isCreateNotebookModalOpen: false,
   isEditNotebookModalOpen: false,
   editingNotebook: null,
+  isSidebarCollapsed: false,
 
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   setGeminiPanelOpen: (open) => set({ isGeminiPanelOpen: open }),
@@ -58,6 +65,7 @@ export const createUiSlice: StateCreator<
   setFocusMode: (focus) => set({ isFocusMode: focus }),
   setMobileSidebarOpen: (open) => set({ isMobileSidebarOpen: open }),
   setMobileNotesListOpen: (open) => set({ isMobileNotesListOpen: open }),
+  setSidebarCollapsed: (collapsed) => set({ isSidebarCollapsed: collapsed }),
 
   showConfirm: (dialog) => {
     set({
@@ -70,6 +78,22 @@ export const createUiSlice: StateCreator<
 
   hideConfirm: () => {
     set({ confirmDialog: null });
+  },
+
+  showContextMenu: (type, targetId, x, y) => {
+    set({
+      contextMenu: {
+        isOpen: true,
+        type,
+        targetId,
+        x,
+        y,
+      },
+    });
+  },
+
+  hideContextMenu: () => {
+    set({ contextMenu: null });
   },
 
   showPrompt: (dialog) => {

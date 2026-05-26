@@ -35,14 +35,32 @@ fn escape_html(s: &str) -> String {
 }
 
 pub fn render_markdown(markdown: &str) -> String {
-    // 1. Setup options (CommonMark + GFM additions like tables, task lists, footnotes)
+    // 1. Setup options (CommonMark + GFM additions like tables, task lists, footnotes, math, smart punctuation, heading attributes)
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_FOOTNOTES);
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_MATH);
+    options.insert(Options::ENABLE_SMART_PUNCTUATION);
+    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+    options.insert(Options::ENABLE_GFM);
 
-    let parser = Parser::new_ext(markdown, options);
+    let parser = Parser::new_ext(markdown, options).into_offset_iter();
+
+    // Line number mapping helper
+    let mut line_starts = vec![0];
+    for (i, c) in markdown.char_indices() {
+        if c == '\n' {
+            line_starts.push(i + 1);
+        }
+    }
+    let get_line = |offset: usize| -> usize {
+        match line_starts.binary_search(&offset) {
+            Ok(idx) => idx + 1,
+            Err(idx) => idx,
+        }
+    };
 
     // 2. Load syntect syntax and theme sets
     let (ps, theme) = get_syntax_and_theme();
@@ -52,14 +70,106 @@ pub fn render_markdown(markdown: &str) -> String {
     let mut in_code_block = false;
     let mut code_block_lang = String::new();
     let mut code_block_content = String::new();
+    let mut code_block_start_line = 1;
+    let mut last_heading_level = 1;
 
-    // Outgoing link scanning: we will also search for wiki link patterns `[[Note Title]]` in Text events
-    for event in parser {
+    for (event, range) in parser {
         match event {
+            Event::Start(Tag::Paragraph) => {
+                if in_code_block {
+                    new_events.push(event);
+                } else {
+                    let line = get_line(range.start);
+                    new_events.push(Event::Html(format!("<p data-line=\"{}\">", line).into()));
+                }
+            }
+            Event::End(TagEnd::Paragraph) => {
+                if in_code_block {
+                    new_events.push(event);
+                } else {
+                    new_events.push(Event::Html("</p>\n".into()));
+                }
+            }
+            Event::Start(Tag::Heading { level, id, classes, attrs }) => {
+                if in_code_block {
+                    new_events.push(Event::Start(Tag::Heading { level, id, classes, attrs }));
+                } else {
+                    let line = get_line(range.start);
+                    let level_num = match level {
+                        pulldown_cmark::HeadingLevel::H1 => 1,
+                        pulldown_cmark::HeadingLevel::H2 => 2,
+                        pulldown_cmark::HeadingLevel::H3 => 3,
+                        pulldown_cmark::HeadingLevel::H4 => 4,
+                        pulldown_cmark::HeadingLevel::H5 => 5,
+                        pulldown_cmark::HeadingLevel::H6 => 6,
+                    };
+                    last_heading_level = level_num;
+
+                    let mut id_str = String::new();
+                    if let Some(ref val) = id {
+                        id_str = format!(" id=\"{}\"", val);
+                    }
+
+                    let mut class_str = String::new();
+                    if !classes.is_empty() {
+                        let class_joined = classes.join(" ");
+                        class_str = format!(" class=\"{}\"", class_joined);
+                    }
+
+                    let mut attr_str = String::new();
+                    for (k, v) in attrs {
+                        if let Some(ref val) = v {
+                            attr_str.push_str(&format!(" {}=\"{}\"", k, val));
+                        } else {
+                            attr_str.push_str(&format!(" {}", k));
+                        }
+                    }
+
+                    new_events.push(Event::Html(format!("<h{} data-line=\"{}\"{}{}{}>", level_num, line, id_str, class_str, attr_str).into()));
+                }
+            }
+            Event::End(TagEnd::Heading(_)) => {
+                if in_code_block {
+                    new_events.push(event);
+                } else {
+                    new_events.push(Event::Html(format!("</h{}>\n", last_heading_level).into()));
+                }
+            }
+            Event::Start(Tag::Item) => {
+                if in_code_block {
+                    new_events.push(event);
+                } else {
+                    let line = get_line(range.start);
+                    new_events.push(Event::Html(format!("<li data-line=\"{}\">", line).into()));
+                }
+            }
+            Event::End(TagEnd::Item) => {
+                if in_code_block {
+                    new_events.push(event);
+                } else {
+                    new_events.push(Event::Html("</li>\n".into()));
+                }
+            }
+            Event::Start(Tag::BlockQuote(kind)) => {
+                if in_code_block {
+                    new_events.push(Event::Start(Tag::BlockQuote(kind)));
+                } else {
+                    let line = get_line(range.start);
+                    new_events.push(Event::Html(format!("<blockquote data-line=\"{}\">", line).into()));
+                }
+            }
+            Event::End(TagEnd::BlockQuote(kind)) => {
+                if in_code_block {
+                    new_events.push(Event::End(TagEnd::BlockQuote(kind)));
+                } else {
+                    new_events.push(Event::Html("</blockquote>\n".into()));
+                }
+            }
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref lang))) => {
                 in_code_block = true;
                 code_block_lang = lang.to_string();
                 code_block_content.clear();
+                code_block_start_line = get_line(range.start);
             }
             Event::End(TagEnd::CodeBlock) => {
                 if in_code_block {
@@ -73,7 +183,7 @@ pub fn render_markdown(markdown: &str) -> String {
 
                     let mut highlighted_html = String::new();
                     // Add modern container wrapper for the copy button and language tag
-                    highlighted_html.push_str("<div class=\"code-block-wrapper\">");
+                    highlighted_html.push_str(&format!("<div class=\"code-block-wrapper\" data-line=\"{}\">", code_block_start_line));
                     highlighted_html.push_str(&format!(
                         "<div class=\"code-block-header\"><span class=\"code-lang\">{}</span><button class=\"copy-code-btn\" onclick=\"copyCodeToClipboard(this)\">Copy</button></div>",
                         if code_block_lang.is_empty() { "text" } else { &code_block_lang }
@@ -90,6 +200,22 @@ pub fn render_markdown(markdown: &str) -> String {
 
                     // Inject the pre-highlighted block as raw HTML event
                     new_events.push(Event::Html(highlighted_html.into()));
+                }
+            }
+            Event::InlineMath(ref math) => {
+                if in_code_block {
+                    code_block_content.push_str(math);
+                } else {
+                    let escaped = escape_html(math);
+                    new_events.push(Event::Html(format!("<span class=\"math-inline\">{}</span>", escaped).into()));
+                }
+            }
+            Event::DisplayMath(ref math) => {
+                if in_code_block {
+                    code_block_content.push_str(math);
+                } else {
+                    let escaped = escape_html(math);
+                    new_events.push(Event::Html(format!("<span class=\"math-display\">{}</span>", escaped).into()));
                 }
             }
             Event::Text(ref text) => {
@@ -207,5 +333,19 @@ mod tests {
         let rendered = parse_wiki_links(text);
         assert!(rendered.contains("&lt;script&gt;"));
         assert!(rendered.contains("Label &lt;&gt;&amp;&#x27;&quot;"));
+    }
+
+    #[test]
+    fn test_math_rendering() {
+        let raw = "Math: $x \\le y$ and block $$a \\ge b$$";
+        let rendered = render_markdown(raw);
+        assert!(rendered.contains("<span class=\"math-inline\">x \\le y</span>"));
+        assert!(rendered.contains("<span class=\"math-display\">a \\ge b</span>"));
+
+        let raw_ge = "Here is $\\ge$ and $\\le$ and $\\ge$";
+        let rendered_ge = render_markdown(raw_ge);
+        println!("RENDERED GE: {}", rendered_ge);
+        assert!(rendered_ge.contains("<span class=\"math-inline\">\\ge</span>"));
+        assert!(rendered_ge.contains("<span class=\"math-inline\">\\le</span>"));
     }
 }

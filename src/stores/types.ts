@@ -72,6 +72,14 @@ export interface PromptDialogState {
   onSubmit: (value: string) => void | Promise<void>;
 }
 
+export interface ContextMenuState {
+  isOpen: boolean;
+  x: number;
+  y: number;
+  type: 'note' | 'notebook';
+  targetId: string;
+}
+
 export interface KeelStore {
   // Notebooks State
   notebooks: Notebook[];
@@ -101,6 +109,7 @@ export interface KeelStore {
   theme: 'dark' | 'light' | 'paper';
   isMobileSidebarOpen: boolean;
   isMobileNotesListOpen: boolean;
+  isSidebarCollapsed: boolean;
 
   // Background & Appearance Settings
   bgImageUrl: string;
@@ -113,6 +122,11 @@ export interface KeelStore {
   
   // Custom Confirmation Dialog
   confirmDialog: ConfirmDialogState | null;
+
+  // Custom Context Menu State
+  contextMenu: ContextMenuState | null;
+  showContextMenu: (type: 'note' | 'notebook', targetId: string, x: number, y: number) => void;
+  hideContextMenu: () => void;
   
   // Custom Prompt Dialog
   promptDialog: PromptDialogState | null;
@@ -158,6 +172,7 @@ export interface KeelStore {
   checkKeyringStatus: () => Promise<void>;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileNotesListOpen: (open: boolean) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 
   // Background & Appearance Actions
   setBgImageUrl: (url: string) => void;

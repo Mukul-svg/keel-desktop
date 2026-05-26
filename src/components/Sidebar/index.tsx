@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../stores/useStore';
 import { 
   Folder, Inbox, Settings, Command, Pin, 
-  Book, Archive, Code, Sparkles, Globe, Heart, Lock, X
+  Book, Archive, Code, Sparkles, Globe, Heart, Lock, X, ChevronDown, ChevronLeft
 } from 'lucide-react';
 
 const getNotebookIcon = (emojiOrName: string) => {
@@ -37,6 +37,8 @@ export const Sidebar: React.FC = () => {
     setMobileSidebarOpen,
     setMobileNotesListOpen,
     moveNote,
+    showContextMenu,
+    setSidebarCollapsed,
   } = useStore();
 
   // Local state for drag-and-drop reordering
@@ -44,6 +46,7 @@ export const Sidebar: React.FC = () => {
   const [draggedNotebookId, setDraggedNotebookId] = useState<string | null>(null);
   const [draggedOverReorderBookId, setDraggedOverReorderBookId] = useState<string | null>(null);
   const [isDropAbove, setIsDropAbove] = useState<boolean>(true);
+  const [isNotebooksCollapsed, setIsNotebooksCollapsed] = useState(false);
 
   const handleAddNotebook = () => {
     setCreateNotebookModalOpen(true);
@@ -56,13 +59,42 @@ export const Sidebar: React.FC = () => {
           <img src="/logo.png" alt="Logo" className="brand-logo" style={{ height: '22px', width: 'auto', objectFit: 'contain' }} />
           <span className="logo-text">Keel</span>
         </div>
-        <button className="mobile-drawer-close-btn" onClick={() => setMobileSidebarOpen(false)} title="Close drawer">
-          <X size={18} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button 
+            className="sidebar-collapse-btn desktop-only" 
+            onClick={() => setSidebarCollapsed(true)} 
+            title="Collapse Sidebar"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '4px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button className="mobile-drawer-close-btn" onClick={() => setMobileSidebarOpen(false)} title="Close drawer">
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="nav-section">
-        <div className="nav-section-title">Notebooks</div>
+        <div 
+          className="nav-section-title"
+          onClick={() => setIsNotebooksCollapsed(!isNotebooksCollapsed)}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <ChevronDown size={13} className={`chevron-icon ${isNotebooksCollapsed ? 'collapsed' : ''}`} />
+          <span>Notebooks</span>
+        </div>
+        <div className={`collapsible-section ${isNotebooksCollapsed ? 'collapsed' : ''}`}>
         {notebooks.map((book) => (
           <div
             key={book.id}
@@ -75,6 +107,11 @@ export const Sidebar: React.FC = () => {
                   : 'drag-reorder-below'
                 : ''
             }`}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              showContextMenu('notebook', book.id, e.clientX, e.clientY);
+            }}
             onClick={() => {
               selectNotebook(book.id);
               // Clear search states globally
@@ -225,6 +262,7 @@ export const Sidebar: React.FC = () => {
         <button className="new-notebook-btn" onClick={handleAddNotebook}>
           + Create Notebook
         </button>
+        </div>
       </div>
 
       {tags.length > 0 && (

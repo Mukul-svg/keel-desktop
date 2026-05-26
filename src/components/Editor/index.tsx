@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useStore, Snapshot } from '../../stores/useStore';
 import { invoke } from '@tauri-apps/api/core';
+import katex from 'katex';
 import { useSmartKeys } from './useSmartKeys';
 import { useImagePaste } from './useImagePaste';
 import { FindReplace } from './FindReplace';
@@ -77,6 +78,191 @@ export const Editor: React.FC = () => {
     if (textareaRef.current && gutterRef.current) {
       gutterRef.current.scrollTop = textareaRef.current.scrollTop;
     }
+  };
+
+  // Render LaTeX math using KaTeX offline engine
+  useEffect(() => {
+    if (isPreviewMode && previewRef.current && activeNote?.content_html) {
+      const inlineMathElements = previewRef.current.querySelectorAll('.math-inline');
+      inlineMathElements.forEach((el) => {
+        let mathContent = el.textContent || '';
+        // Defensive replacement for LaTeX aliases to guarantee rendering (LaTeX command boundaries)
+        mathContent = mathContent
+          .replace(/\\le(?![a-zA-Z])/g, '\\leq')
+          .replace(/\\ge(?![a-zA-Z])/g, '\\geq');
+        try {
+          katex.render(mathContent, el as HTMLElement, {
+            throwOnError: false,
+            displayMode: false,
+          });
+        } catch (err) {
+          console.error('KaTeX inline render error:', err);
+        }
+      });
+
+      const displayMathElements = previewRef.current.querySelectorAll('.math-display');
+      displayMathElements.forEach((el) => {
+        let mathContent = el.textContent || '';
+        // Defensive replacement for LaTeX aliases to guarantee rendering (LaTeX command boundaries)
+        mathContent = mathContent
+          .replace(/\\le(?![a-zA-Z])/g, '\\leq')
+          .replace(/\\ge(?![a-zA-Z])/g, '\\geq');
+        try {
+          katex.render(mathContent, el as HTMLElement, {
+            throwOnError: false,
+            displayMode: true,
+          });
+        } catch (err) {
+          console.error('KaTeX display render error:', err);
+        }
+      });
+    }
+  }, [activeNote?.content_html, isPreviewMode]);
+
+  // Handle double clicking in preview to navigate to edit mode at the EXACT occurrence user double clicked
+  const handleDoubleClick = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      setPreviewMode(false);
+      return;
+    }
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText) {
+      setPreviewMode(false);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+
+    // 1. Calculate occurrence index in DOM up to the selection start (global fallback)
+    let globalOccurrenceIndex = 0;
+    if (previewRef.current) {
+      try {
+        const preRange = document.createRange();
+        preRange.selectNodeContents(previewRef.current);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const textBefore = preRange.toString();
+
+        const escapedWord = selectedText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const matchRegex = new RegExp(escapedWord, 'gi');
+        const matchesBefore = textBefore.match(matchRegex);
+        globalOccurrenceIndex = matchesBefore ? matchesBefore.length : 0;
+      } catch (err) {
+        console.error('Error calculating global selection occurrence:', err);
+      }
+    }
+
+    let matchIndex = -1;
+
+    // 2. Try precise source map data-line block search
+    const clickedElement = range.startContainer.parentElement;
+    const blockElement = clickedElement ? clickedElement.closest('[data-line]') : null;
+    const lineAttr = blockElement ? blockElement.getAttribute('data-line') : null;
+
+    if (lineAttr && blockElement) {
+      try {
+        const targetLine = parseInt(lineAttr, 10);
+        
+        // Calculate the exact text offset of the clicked word within the blockElement DOM text
+        let offsetInBlockText = 0;
+        const walker = document.createTreeWalker(blockElement, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (node === range.startContainer) {
+            offsetInBlockText += range.startOffset;
+            break;
+          }
+          offsetInBlockText += node.textContent ? node.textContent.length : 0;
+        }
+
+        // Count how many times selectedText appeared inside this block's DOM text before our click
+        const blockTextBefore = blockElement.textContent ? blockElement.textContent.substring(0, offsetInBlockText) : '';
+        const escapedWord = selectedText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const blockMatches = blockTextBefore.match(new RegExp(escapedWord, 'gi'));
+        const occurrenceInBlock = blockMatches ? blockMatches.length : 0;
+
+        // Find the start character index of targetLine in the raw markdown body
+        const lines = editorBody.split('\n');
+        let lineStartOffset = 0;
+        for (let i = 0; i < Math.min(targetLine - 1, lines.length); i++) {
+          lineStartOffset += lines[i].length + 1; // +1 for newline character
+        }
+
+        // Find the occurrenceInBlock-th match of selectedText in the raw markdown starting from lineStartOffset
+        let count = 0;
+        let pos = editorBody.toLowerCase().indexOf(selectedText.toLowerCase(), lineStartOffset);
+        while (pos !== -1) {
+          if (count === occurrenceInBlock) {
+            matchIndex = pos;
+            break;
+          }
+          count++;
+          pos = editorBody.toLowerCase().indexOf(selectedText.toLowerCase(), pos + 1);
+        }
+      } catch (err) {
+        console.error('Precise source-map line matching failed, falling back:', err);
+      }
+    }
+
+    // 3. Fallback to global occurrence search if precise search failed or was not applicable
+    if (matchIndex === -1) {
+      const words = selectedText.split(/\s+/).filter(w => w.length > 0);
+      if (words.length > 0) {
+        const regexStr = words.map(w => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('\\s*[\\s\\S]*?\\s*');
+        try {
+          const regex = new RegExp(regexStr, 'gi');
+          let match;
+          let count = 0;
+          while ((match = regex.exec(editorBody)) !== null) {
+            if (count === globalOccurrenceIndex) {
+              matchIndex = match.index;
+              break;
+            }
+            count++;
+            if (match.index === regex.lastIndex) {
+              regex.lastIndex++;
+            }
+          }
+        } catch (err) {
+          console.error('Fuzzy matching occurrence failed:', err);
+        }
+      }
+    }
+
+    // Double fallback to exact global substring matching
+    if (matchIndex === -1) {
+      let count = 0;
+      let pos = editorBody.toLowerCase().indexOf(selectedText.toLowerCase());
+      while (pos !== -1) {
+        if (count === globalOccurrenceIndex) {
+          matchIndex = pos;
+          break;
+        }
+        count++;
+        pos = editorBody.toLowerCase().indexOf(selectedText.toLowerCase(), pos + 1);
+      }
+    }
+
+    // Toggle back to editor
+    setPreviewMode(false);
+
+    // Micro delay to wait for textarea to render/mount, then focus and set cursor selection
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        if (matchIndex !== -1) {
+          textareaRef.current.selectionStart = matchIndex;
+          textareaRef.current.selectionEnd = matchIndex + selectedText.length;
+
+          // Scroll editor dynamically to match cursor line position
+          const lineHeight = 20;
+          const textBefore = editorBody.substring(0, matchIndex);
+          const numLinesBefore = textBefore.split('\n').length;
+          textareaRef.current.scrollTop = Math.max(0, (numLinesBefore - 6) * lineHeight);
+        }
+      }
+    }, 50);
   };
 
   // Sync scroll position when document content changes
@@ -172,10 +358,16 @@ export const Editor: React.FC = () => {
         e.preventDefault();
         createNote();
       }
-      // Ctrl + P -> Preview Toggle
+      // Ctrl + P -> Preview Toggle (with immediate save if dirty before entering preview)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        setPreviewMode(!isPreviewMode);
+        const nextPreviewMode = !isPreviewMode;
+        if (nextPreviewMode && isDirtyRef.current && activeNoteId) {
+          if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+          saveNoteContent(editorTitle, editorBody);
+          isDirtyRef.current = false;
+        }
+        setPreviewMode(nextPreviewMode);
       }
       // Ctrl + J -> AI Panel Toggle
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
@@ -301,7 +493,15 @@ export const Editor: React.FC = () => {
             isTOCOpen={isTOCOpen}
             isGeminiPanelOpen={isGeminiPanelOpen}
             onTogglePin={togglePinActiveNote}
-            onTogglePreview={() => setPreviewMode(!isPreviewMode)}
+            onTogglePreview={async () => {
+              const nextPreviewMode = !isPreviewMode;
+              if (nextPreviewMode && isDirtyRef.current && activeNoteId) {
+                if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+                await saveNoteContent(editorTitle, editorBody);
+                isDirtyRef.current = false;
+              }
+              setPreviewMode(nextPreviewMode);
+            }}
             onToggleFocus={() => setFocusMode(!isFocusMode)}
             onToggleTOC={() => setTOCOpen(!isTOCOpen)}
             onToggleGemini={() => setGeminiPanelOpen(!isGeminiPanelOpen)}
@@ -327,6 +527,7 @@ export const Editor: React.FC = () => {
                   className="markdown-body"
                   spellCheck="false"
                   dangerouslySetInnerHTML={{ __html: activeNote.content_html || '' }}
+                  onDoubleClick={handleDoubleClick}
                   onClick={async (e) => {
                     const target = e.target as HTMLElement;
                     const link = target.closest('a');

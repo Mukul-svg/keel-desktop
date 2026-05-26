@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../stores/useStore';
 import { 
-  Settings, Plus, X, Search, Pin, Clock 
+  Settings, Plus, X, Search, Pin, Clock, ChevronRight
 } from 'lucide-react';
 
 const getNoteCardPreview = (content?: string, title?: string): string => {
@@ -45,6 +45,9 @@ export const NotesList: React.FC = () => {
     createNote,
     setMobileNotesListOpen,
     setEditNotebookModalOpen,
+    showContextMenu,
+    isSidebarCollapsed,
+    setSidebarCollapsed,
   } = useStore();
 
   const [searchText, setSearchText] = useState(searchQuery);
@@ -75,6 +78,28 @@ export const NotesList: React.FC = () => {
       <div className="list-panel-header">
         <div className="list-title-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+            {isSidebarCollapsed && (
+              <button
+                className="sidebar-expand-btn desktop-only"
+                title="Expand Sidebar"
+                onClick={() => setSidebarCollapsed(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px',
+                  marginRight: '2px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <ChevronRight size={15} />
+              </button>
+            )}
             <h2 className="list-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
               {activeNotebook ? activeNotebook.name : 'Inbox'}
             </h2>
@@ -196,6 +221,11 @@ export const NotesList: React.FC = () => {
                   selectNote(res.id);
                   setMobileNotesListOpen(false);
                 }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  showContextMenu('note', res.id, e.clientX, e.clientY);
+                }}
                 draggable={true}
                 onDragStart={(e) => {
                   (window as any).__draggedNoteId = res.id;
@@ -238,6 +268,11 @@ export const NotesList: React.FC = () => {
                 onClick={() => {
                   selectNote(note.id);
                   setMobileNotesListOpen(false);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  showContextMenu('note', note.id, e.clientX, e.clientY);
                 }}
                 draggable={true}
                 onDragStart={(e) => {

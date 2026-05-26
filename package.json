@@ -1,7 +1,7 @@
 {
   "name": "tauri-app",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,10 +15,12 @@
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "zustand": "^5.0.13"
+    "zustand": "^5.0.13",
+    "katex": "^0.16.21"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.2",
+    "@types/katex": "^0.16.7",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
