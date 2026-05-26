@@ -64,6 +64,8 @@ Crafted with [Tauri v2](https://v2.tauri.app/), [React](https://react.dev/), [Ty
 | **Pinned Notes** | Pin important notes for quick access |
 | **Search** | Full-text search powered by SQLite FTS5 |
 | **Drag & Drop** | Reorder notes and move between notebooks |
+| **Offline LaTeX Math** | High-fidelity mathematical equations and formula rendering powered by KaTeX |
+| **Double-Click Editing** | Double-clicking any word in reading mode immediately opens editor mode at that exact line and cursor word offset |
 
 ### AI-Powered Writing
 
@@ -91,6 +93,9 @@ Crafted with [Tauri v2](https://v2.tauri.app/), [React](https://react.dev/), [Ty
 | **Command Palette** | `Ctrl+K` quick access to all actions |
 | **Focus Mode** | Distraction-free writing environment |
 | **Light & Dark Themes** | System-aware theme switching |
+| **Moleskine Paper Theme** | Zero-glare, eye-friendly sepia writing aesthetic with organic fiber paper texture and premium editorial typography |
+| **Collapsible Sidebar** | Smooth collapsing main navigation sidebar which scales down to a 64px narrow tablet dock view |
+| **Context Menus** | Premium right-click options to delete, edit, and pin notes and notebooks instantly |
 | **Custom Backgrounds** | Personalize with custom images and blur effects |
 | **Glass Morphism** | Optional translucent UI effects |
 | **Snow Effect** | Ambient visual effect toggle |
