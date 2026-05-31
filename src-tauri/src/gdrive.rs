@@ -14,25 +14,25 @@ const KEYRING_SERVICE: &str = "com.keel.app";
 const KEY_ACCESS_TOKEN: &str = "google_drive_access_token";
 
 /// Get Google OAuth Client ID from environment variable
-fn get_client_id() -> String {
+fn get_client_id() -> Result<String, String> {
     if let Some(id) = option_env!("GOOGLE_CLIENT_ID") {
         if !id.is_empty() {
-            return id.to_string();
+            return Ok(id.to_string());
         }
     }
     std::env::var("GOOGLE_CLIENT_ID")
-        .expect("GOOGLE_CLIENT_ID environment variable must be set. Create a .env file or set the environment variable.")
+        .map_err(|_| "GOOGLE_CLIENT_ID environment variable is missing. Please configure it in your Settings or .env file before connecting Google Drive.".to_string())
 }
 
 /// Get Google OAuth Client Secret from environment variable
-fn get_client_secret() -> String {
+fn get_client_secret() -> Result<String, String> {
     if let Some(secret) = option_env!("GOOGLE_CLIENT_SECRET") {
         if !secret.is_empty() {
-            return secret.to_string();
+            return Ok(secret.to_string());
         }
     }
     std::env::var("GOOGLE_CLIENT_SECRET")
-        .expect("GOOGLE_CLIENT_SECRET environment variable must be set. Create a .env file or set the environment variable.")
+        .map_err(|_| "GOOGLE_CLIENT_SECRET environment variable is missing. Please configure it in your Settings or .env file before connecting Google Drive.".to_string())
 }
 const KEY_REFRESH_TOKEN: &str = "google_drive_refresh_token";
 const KEY_EMAIL: &str = "google_drive_email";
@@ -106,6 +106,10 @@ pub async fn start_oauth_flow(app: &AppHandle) -> Result<String, String> {
     // 3. Construct Google OAuth Consent URL
     // We add prompt=consent & access_type=offline to guarantee Google returns a refresh_token
     let scope = "https://www.googleapis.com/auth/drive.appdata email";
+    let client_id = get_client_id().map_err(|e| {
+        log_debug(app, &e);
+        e
+    })?;
     let oauth_url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth?\
          response_type=code&\
@@ -116,7 +120,7 @@ pub async fn start_oauth_flow(app: &AppHandle) -> Result<String, String> {
          code_challenge_method=S256&\
          access_type=offline&\
          prompt=consent",
-         get_client_id(),
+         client_id,
         urlencoding::encode(&redirect_uri),
         urlencoding::encode(scope),
         code_challenge
@@ -281,8 +285,14 @@ pub async fn start_oauth_flow(app: &AppHandle) -> Result<String, String> {
     // 6. Exchange Authorization Code for Access & Refresh Tokens
     log_debug(app, "Exchanging auth code for access & refresh tokens...");
     let client = reqwest::Client::new();
-    let client_id = get_client_id();
-    let client_secret = get_client_secret();
+    let client_id = get_client_id().map_err(|e| {
+        log_debug(app, &e);
+        e
+    })?;
+    let client_secret = get_client_secret().map_err(|e| {
+        log_debug(app, &e);
+        e
+    })?;
     let mut params = HashMap::new();
     params.insert("client_id", client_id.as_str());
     params.insert("client_secret", client_secret.as_str());
@@ -422,8 +432,8 @@ pub async fn get_valid_access_token() -> Result<String, String> {
     if now + 60 >= expires_at {
         // Exchange refresh token for a brand new access token
         let client = reqwest::Client::new();
-        let client_id = get_client_id();
-        let client_secret = get_client_secret();
+        let client_id = get_client_id()?;
+        let client_secret = get_client_secret()?;
         let mut params = HashMap::new();
         params.insert("client_id", client_id.as_str());
         params.insert("client_secret", client_secret.as_str());
@@ -973,9 +983,12 @@ mod tests {
     #[test]
     fn test_keyring() {
         // Initialize the store if it's not already set in tests
-        let _ = keyring_core::set_default_store(
-            windows_native_keyring_store::Store::new().unwrap()
-        );
+        #[cfg(target_os = "windows")]
+        {
+            let _ = keyring_core::set_default_store(
+                windows_native_keyring_store::Store::new().unwrap()
+            );
+        }
         let entry = Entry::new("test_service", "test_key").unwrap();
         entry.set_password("test_val").unwrap();
         let val = entry.get_password().unwrap();

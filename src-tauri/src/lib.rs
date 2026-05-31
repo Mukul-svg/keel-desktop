@@ -24,10 +24,22 @@ pub fn run() {
     }
 
     // Initialize Windows Credential Manager store for keyring-core
-    keyring_core::set_default_store(
-        windows_native_keyring_store::Store::new()
-            .expect("Failed to initialize Windows Credential Manager store")
-    );
+    #[cfg(target_os = "windows")]
+    {
+        keyring_core::set_default_store(
+            windows_native_keyring_store::Store::new()
+                .expect("Failed to initialize Windows Credential Manager store")
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        keyring_core::set_default_store(
+            keyring_core::mock::Store::new()
+                .expect("Failed to initialize fallback in-memory keyring store")
+        );
+    }
+
+
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
